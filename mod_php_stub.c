@@ -64,8 +64,10 @@ void *merge_php_stub_config(apr_pool_t *p, void *base_conf, void *new_conf)
     return new_conf;
 }
 
-static void php_stub_log_error(cmd_parms *cmd)
+static void php_stub_handle_cmd(cmd_parms *cmd, php_stub_conf_rec *conf)
 {
+    conf->should_alert = true;
+
     ap_directive_t *d = cmd->directive;
     ap_log_error(APLOG_MARK, APLOG_ALERT, 0, cmd->server, 
                  "%s '%s': Invalid command '%s', perhaps mis-spelled or defined by a module"
@@ -75,9 +77,10 @@ static void php_stub_log_error(cmd_parms *cmd)
                  d->directive);
 }
 
-
 /* サーバーが起動する時だけ実行 */
-static const char *php_stub_set_error_document(cmd_parms *cmd, void *dummy, const char *path)
+static const char *php_stub_set_error_document(cmd_parms *cmd,
+                                               void *dummy,
+                                               const char *path)
 {
     const char *abs_path = ap_server_root_relative(cmd->pool, path);
     php_stub_error_document = (const char *)apr_pstrdup(cmd->pool, abs_path);
@@ -85,27 +88,30 @@ static const char *php_stub_set_error_document(cmd_parms *cmd, void *dummy, cons
 }
 
 /* サーバーが起動する時だけ実行 */
-static const char *php_stub_set_error_link(cmd_parms *cmd, void *dummy, const char *link)
+static const char *php_stub_set_error_link(cmd_parms *cmd,
+                                           void *dummy,
+                                           const char *link)
 {
     php_stub_error_link = (const char *)apr_pstrdup(cmd->pool, link);
     return NULL;
 }
 
 /* htaccessのパース時にコールバック */
-static const char *php_stub_apache_phpini_set(cmd_parms *cmd, void *dummy, const char *arg)
+static const char *php_stub_apache_phpini_set(cmd_parms *cmd,
+                                              void *dummy,
+                                              const char *arg)
 {
-    php_stub_conf_rec *conf = dummy;
-    conf->should_alert = true;
-    php_stub_log_error(cmd);
+    php_stub_handle_cmd(cmd, dummy);
     return NULL;
 }
 
 /* htaccessのパース時にコールバック */
-static const char *php_stub_apache_value_handler(cmd_parms *cmd, void *dummy, const char *name, const char *value)
+static const char *php_stub_apache_value_handler(cmd_parms *cmd,
+                                                 void *dummy,
+                                                 const char *name,
+                                                 const char *value)
 {
-    php_stub_conf_rec *conf = dummy;
-    conf->should_alert = true;
-    php_stub_log_error(cmd);
+    php_stub_handle_cmd(cmd, dummy);
     return NULL;
 }
 
