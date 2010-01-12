@@ -36,6 +36,7 @@
 **
 **/
 
+#include <stdbool.h>
 #include "httpd.h"
 #include "http_config.h"
 #include "http_protocol.h"
@@ -225,7 +226,7 @@ static int php_stub_handler(request_rec *r)
              "</head><body>\n"
              "<h1>Internal Server Error</h1>\n"
              "<h3>.htaccess is invalid </h3>\n"
-             "<p>The server not support following .htaccess commands</p>\n"
+             "<p>The server does not support following .htaccess commands</p>\n"
              "<ul>\n"
              "<li>php_value</li>\n"
              "<li>php_flag</li>\n"
