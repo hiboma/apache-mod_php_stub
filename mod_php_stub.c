@@ -124,6 +124,7 @@ static apr_status_t php_stub_send_error_document(request_rec *r)
     conn_rec *c = r->connection;
     apr_bucket_brigade *bb;
     apr_bucket *e;
+    char buffer[4096];
 
     /* ファイルがあるかどうか */
     status = apr_stat(&finfo, php_stub_error_document, APR_FINFO_TYPE, r->pool);
@@ -148,51 +149,10 @@ static apr_status_t php_stub_send_error_document(request_rec *r)
         return APR_EGENERAL;
     }
 
-    /*
-    **  brigadeでHTMLを返す. default_handlerからコードコピペ。
-    **  (静的ファイルを簡単に返すための内部APIがありそう ...)
-    **
-    **  ap_internal_redirect()はレスポンスコードを指定できなそうなのと余計なフ
-    **  入るでの使わなかった
-    **
-    */
-    bb = apr_brigade_create(r->pool, c->bucket_alloc);
-
-    if (sizeof(apr_off_t) > sizeof(apr_size_t)
-        && r->finfo.size > AP_MAX_SENDFILE) {
-        apr_off_t fsize = r->finfo.size;
-        e = apr_bucket_file_create(fd, 0, AP_MAX_SENDFILE, r->pool,
-                                   c->bucket_alloc);
-        while (fsize > AP_MAX_SENDFILE) {
-            apr_bucket *ce;
-            apr_bucket_copy(e, &ce);
-            APR_BRIGADE_INSERT_TAIL(bb, ce);
-            e->start += AP_MAX_SENDFILE;
-            fsize -= AP_MAX_SENDFILE;
-        }
-        e->length = (apr_size_t)fsize; /* Resize just the last bucket */
+    while (apr_file_gets(buffer, sizeof(buffer), fd) == APR_SUCCESS) {
+         ap_rprintf(r, "%s", buffer);
     }
-    else {
-        e = apr_bucket_file_create(fd, 0, (apr_size_t)r->finfo.size,
-                                   r->pool, c->bucket_alloc);
-    }
-
-    APR_BRIGADE_INSERT_TAIL(bb, e);
-    e = apr_bucket_eos_create(c->bucket_alloc);
-    APR_BRIGADE_INSERT_TAIL(bb, e);
-
-    status = ap_pass_brigade(r->output_filters, bb);
-    if (status == APR_SUCCESS || c->aborted) {
-        ap_log_rerror(APLOG_MARK, APLOG_DEBUG, status, r,
-                      "mod_php_stub.c: sent %s as PHPStubErrorDocument", php_stub_error_document);
-        return APR_SUCCESS; /* r->status will be respected */
-    }
-    else {
-        /* no way to know what type of error occurred */
-        ap_log_rerror(APLOG_MARK, APLOG_DEBUG, status, r,
-                      "mod_php_stub.c: ap_pass_brigade returned %i", status);
-        return APR_EGENERAL;
-    }
+    return APR_SUCCESS;
 }
 
 static int php_stub_handler(request_rec *r)
